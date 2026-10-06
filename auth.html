@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in · Winter Arc</title>
+<style>
+:root{--bg:#EEF2F6;--surface:#fff;--ink:#0E1822;--muted:#5A6878;--line:#D3DCE6;--accent:#1C64C9;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1117;--surface:#131C25;--ink:#E4ECF3;--muted:#93A2B2;--line:#26333F;--accent:#5B9DF5;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+main{max-width:380px;width:100%}
+h1{font-size:34px;line-height:1;margin:0 0 8px;text-transform:uppercase;letter-spacing:.02em}
+h1 span{color:var(--accent)}
+p{color:var(--muted)}
+button,a.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;box-sizing:border-box;padding:13px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 16px system-ui,sans-serif;text-decoration:none;cursor:pointer;margin-top:12px}
+svg{width:20px;height:20px}
+#msg{min-height:24px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Winter <span>Arc</span></h1>
+  <p>Sign in with Google to back up your workouts, food and steps. You'll go straight back to the app.</p>
+  <button id="go"><svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continue with Google</button>
+  <a class="btn" id="back" href="#" hidden>Return to the app</a>
+  <p id="msg"></p>
+</main>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+<script>
+// Same config as the app's config.js
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBEhIYaDtdyHUc7wKhyZ3WlxTP9d-sQX2Y",
+  authDomain: "winter-arc-ab9c4.firebaseapp.com",
+  projectId: "winter-arc-ab9c4",
+  appId: "1:956212896624:web:6663b8e6a91091377765b5"
+};
+(function () {
+  const q = new URLSearchParams(location.search);
+  const state = q.get("state") || "";
+  const msg = document.getElementById("msg"), back = document.getElementById("back");
+  function toApp(params) {
+    const u = "winterarc://auth?" + new URLSearchParams(Object.assign({ state }, params)).toString();
+    back.href = u; back.hidden = false;
+    location.href = u;
+  }
+  if (!/^[a-z0-9]{8,40}$/.test(state)) { msg.textContent = "Open this page from the Winter Arc app."; document.getElementById("go").disabled = true; return; }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+  auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  function done(res) {
+    const cred = res && res.credential;
+    if (!cred || !cred.idToken) { msg.textContent = "Sign-in didn't finish. Try again."; return; }
+    msg.textContent = "Signed in. Going back to the app…";
+    toApp({ id_token: cred.idToken, access_token: cred.accessToken || "" });
+    auth.signOut();
+  }
+  auth.getRedirectResult().then(r => { if (r && r.credential) done(r); }).catch(e => { msg.textContent = "Sign-in failed: " + (e.code || e.message); });
+  document.getElementById("go").addEventListener("click", function () {
+    msg.textContent = "";
+    auth.signInWithPopup(provider).then(done).catch(function (e) {
+      if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") return auth.signInWithRedirect(provider);
+      if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") { msg.textContent = "Sign-in cancelled."; return; }
+      msg.textContent = "Sign-in failed: " + (e.code || e.message);
+    });
+  });
+})();
+</script>
+</body>
+</html>
